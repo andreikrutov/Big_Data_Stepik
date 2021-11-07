@@ -1,0 +1,37 @@
+select sum(salary) from public.employee e 
+where name in ('Rick', 'Morty') and (surname='Smith' or surname like '%C-137%')
+
+select round(avg(salary),1) from public.employee e 
+where job_title ='Data Science'
+
+select e.name, count(*) as freq from public.employee e
+inner join company c 
+on c.id = e.company_id 
+where c."name" ='GoGoogle'
+group by e.name
+order by freq desc
+limit 1
+
+select c.name, count(e.name) from public.employee e
+inner join company c 
+on c.id = e.company_id 
+where end_date is not null 
+group by c.name
+
+select job_title, count(*) as freq from public.employee e 
+group by job_title 
+order by freq desc limit 5
+
+select count(e.name), country from public.employee e 
+inner join office o 
+on o.id = e.office_id 
+where job_title like '%DevOps%'
+group by country
+
+select id, job_title, (end_date-start_date) as diff from public.employee e 
+order by diff
+
+select end_date, count(*) as f from public.employee e 
+group by end_date 
+order by f desc
+
