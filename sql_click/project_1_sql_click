@@ -1,4 +1,4 @@
-/*
+/* 1)
  Получить статистику по дням. 
  Просто посчитать число всех событий по дням, число показов, число кликов, 
  число уникальных объявлений и уникальных кампаний.
@@ -19,7 +19,7 @@ where event = 'click'
 group by date
 
 
-/*
+/* 2)
 Разобраться, почему случился такой скачок 2019-04-05? 
 Каких событий стало больше? У всех объявлений или только у некоторых?
 */
@@ -55,6 +55,45 @@ group by date
 -- этот день связан с данным обяъвлением.
 
 
+/* 4)
+ Похоже, в наших логах есть баг, объявления приходят с кликами, 
+ но без показов! Сколько таких объявлений, есть ли какие-то закономерности? 
+ Эта проблема наблюдается на всех платформах?
+ */
+--В запросе выберем айди сообщений у которых был клик, 
+-- но которые не попадают в результаты подзапроса.
+select ad_id, platform from default.ads_data ad 
+where event='click'
+and ad_id not in ( 
+--в подзапросе выбираем все айди сообщений с показами
+select ad_id from default.ads_data ad 
+where event='view'
+)
 
+--Посчитаем количество таких сообщений
+select count(*) from default.ads_data ad 
+where event='click'
+and ad_id not in ( 
+select ad_id from default.ads_data ad 
+where event='view'
+)
+-- Таких сообщений 89 штук
 
+--Посмотрим по платформам
+select distinct platform from default.ads_data ad 
+where event='click'
+and ad_id not in ( 
+select ad_id from default.ads_data ad 
+where event='view'
+)
+-- Баг наблюдается на всех платформах
 
+--Проверим закономерности
+select date, time, ad_id, client_union_id, campaign_union_id from default.ads_data ad 
+where event='click'
+and ad_id not in ( 
+select ad_id from default.ads_data ad 
+where event='view'
+)
+--Основная часть багов наблюдается в первый день и немного во второй ранним утром. Возможно,
+--это связано с запуском платформы. Потом данную проблему удалось исправить.
