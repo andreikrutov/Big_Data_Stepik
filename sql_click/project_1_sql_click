@@ -1,0 +1,60 @@
+/*
+ Получить статистику по дням. 
+ Просто посчитать число всех событий по дням, число показов, число кликов, 
+ число уникальных объявлений и уникальных кампаний.
+   */
+
+--Группируем по дням и считаем число событий в разрезе одного дня
+select date, count(*) as events_count from default.ads_data ad 
+group by date
+
+-- Аналогично сичтаем показы
+select date, count(*) as views from default.ads_data ad 
+where event = 'view'
+group by date
+
+-- Аналогично для кликов
+select date, count(*) as views from default.ads_data ad 
+where event = 'click'
+group by date
+
+
+/*
+Разобраться, почему случился такой скачок 2019-04-05? 
+Каких событий стало больше? У всех объявлений или только у некоторых?
+*/
+select date, sum(target_audience_count) as audience from default.ads_data ad 
+group by date
+--Очевидно, что скачок не обусловлен суммарным охватом аудитории
+
+select date, ad_id, count(*) as views from default.ads_data ad 
+--where event = 'view'
+group by date,ad_id
+order by views desc
+limit 10
+
+select ad_id, count(*) as views from default.ads_data ad 
+where event = 'view' and date='2019-04-05'
+group by ad_id
+order by views desc
+limit 10
+--Резко отличается число показов объявления с ad_id = 112 583
+
+select ad_id, count(*) as clicks from default.ads_data ad 
+where event = 'click' and date='2019-04-05'
+group by ad_id
+order by clicks desc
+limit 10
+-- Число кликов отличается еще сильнее, чем число показов. Таким образом можно сделать вывод, что
+-- объявление с ad_id = 112 583 было очень удачным в плане конверсии 
+
+select count(*), date from default.ads_data ad 
+where ad_id=112583
+group by date
+-- Объявление с ad_id = 112 583 первый раз появляется 2019-04-05, таким образом скачок событий в 
+-- этот день связан с данным обяъвлением.
+
+
+
+
+

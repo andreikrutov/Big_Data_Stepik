@@ -1,0 +1,97 @@
+/*Определите среднее, минимальное и максимальное количество дней, 
+которые проходят с момента создания клиента (колонка create_date в таблице ads_clients_data) 
+до момента запуска первого объявления этим клиентом (таблица ads_data).
+
+Hint: здесь вам понадобится выражение INNER JOIN
+*/
+
+--объединяем таблицы с клинетами и рекламой
+select * from default.ads_data ad 
+	inner join default.ads_clients ac 
+	on ad.client_union_id =ac.client_union_id
+limit 10
+
+--выбираем все сочетания по айди клиента, дате объявления и дате создания
+SELECT date, client_union_id, create_date, (date-create_date) as diff from (
+	select * from default.ads_data ad 
+	inner join default.ads_clients ac 
+	on ad.client_union_id =ac.client_union_id
+)
+order by diff desc
+limit 10
+
+--выбираем уникальные сочетания по айди клиента и датам
+SELECT    min(date) as minDate, client_union_id, ad_id, max(create_date) minCD,
+(minCD-minDate) as diff from (
+	select * from default.ads_data ad 
+	inner join default.ads_clients ac 
+	on ad.client_union_id =ac.client_union_id
+)
+group by client_union_id, ad_id
+order by client_union_id
+limit 10
+
+SELECT  distinct  date, client_union_id, ad_id, create_date from (
+	select * from default.ads_data ad 
+	inner join default.ads_clients ac 
+	on ad.client_union_id =ac.client_union_id
+)
+order by client_union_id
+limit 10
+
+
+-- вычисляем искомые значения
+select min(diff), max(diff), avg(diff) from (
+SELECT distinct date,client_union_id, create_date, (create_date - date) as diff from (
+	select * from default.ads_data ad 
+	inner join default.ads_clients ac 
+	on ad.client_union_id =ac.client_union_id
+)
+order by date,client_union_id--,ad_id
+)
+
+select min(diff), max(diff), avg(diff) from (
+
+SELECT    min(date) as minDate, client_union_id, ad_id, max(create_date) minCD,
+(minCD-minDate) as diff from (
+	select * from default.ads_data ad 
+	inner join default.ads_clients ac 
+	on ad.client_union_id =ac.client_union_id
+)
+group by client_union_id, ad_id
+order by client_union_id
+)
+
+
+
+
+--проверяем, что дата объявления всегда меньше даты создания клиента
+SELECT max(date), client_union_id, min(create_date) from (
+	select * from default.ads_data ad 
+	inner join default.ads_clients ac 
+	on ad.client_union_id =ac.client_union_id
+)
+group by client_union_id
+limit 10
+
+--Запрос выводит сочетание айди клиента, айди объявления и минимаьной даты объявления
+select mdate, client_union_id, create_date as cd, ad_id, (mdate - cd) as diff
+from default.ads_clients ac 
+inner join (
+select min(date) as mdate, client_union_id, ad_id
+from default.ads_data ad 
+group by client_union_id, ad_id
+order by client_union_id ) as t
+on t.client_union_id=ac.client_union_id 
+limit 10
+
+select min(diff), max(diff), avg(diff) from (
+select mdate, client_union_id, create_date as cd, ad_id, (mdate - cd) as diff
+from default.ads_clients ac 
+inner join (
+select min(date) as mdate, client_union_id, ad_id
+from default.ads_data ad 
+group by client_union_id, ad_id
+order by client_union_id ) as t
+on t.client_union_id=ac.client_union_id 
+)

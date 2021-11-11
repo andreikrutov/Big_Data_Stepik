@@ -1,0 +1,61 @@
+/*ќбъ€влени€ из таблицы ads_data показываютс€ люд€м на разных платформах.
+¬ычислите, сколько всего просмотров было совершенно с платформы Android и iOS?
+ClickHouse очень богат полезными функци€ми, попробуйте применить countIf.*/
+
+SELECT platform, count(*) from default.ads_data ad 
+where event = 'view'
+group by platform 
+
+SELECT platform, countIf(*, event='view') from default.ads_data ad 
+group by platform 
+
+/*ќбъ€влени€ из таблицы ads_data показываютс€ люд€м на разных 
+ * платформах. ¬ычислите, с какого максимального количества 
+ * платформ было просмотрено одно объ€вление?*/
+SELECT ad_id, platform, count(*) as c from default.ads_data ad 
+where event = 'view'
+group by ad_id, platform
+order by c DESC 
+--limit 1
+
+SELECT ad_id, uniqExact(platform) as ue from default.ads_data ad 
+where event = 'view'
+group by ad_id
+order by ue DESC 
+limit 1
+
+/*ѕеред вами запрос, с которым мы попробуем разобратьс€ в нескольких степах. 
+ * ÷ель этого запроса - определить все возможные сочетани€ платформ пользователей, 
+ * с которых они могут смотреть объ€влени€ и определить наиболее частое сочетание.
+
+ѕри помощи каких выражений можно посчитать точное количество уникальных объ€влений 
+в таблице ads_data на месте пропусков и 1 , и 2? 
+
+with (select 1 from ads_data) as sum_ads
+
+select platforms, 2 as ads, sum_ads, ads / sum_ads * 100 as perc_ads
+from (select ad_id, 4(3(platform)) as platforms
+      from ads_data
+      where event = 'view'
+      group by ad_id)
+group by platforms
+order by perc_ads desc */
+
+with (select 1 from ads_data) as sum_ads
+
+select platforms, 2 as ads, sum_ads, ads / sum_ads * 100 as perc_ads
+from (select ad_id, 4(3(platform)) as platforms
+      from ads_data
+      where event = 'view'
+      group by ad_id)
+group by platforms
+order by perc_ads desc
+
+with(select uniqExact(ad_id) from ads_data) as qwe
+select * from qwe
+select count(distinct ad_id) as c from ads_data
+select uniq(ad_id) from ads_data
+select count(ad_id) from ads_data
+
+with(select count(ad_id) from ads_data) as qwe
+select count(*)/qwe from default.ads_data ad 
