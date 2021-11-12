@@ -5,93 +5,20 @@
 Hint: здесь вам понадобитс€ выражение INNER JOIN
 */
 
---объедин€ем таблицы с клинетами и рекламой
-select * from default.ads_data ad 
-	inner join default.ads_clients ac 
-	on ad.client_union_id =ac.client_union_id
-limit 10
-
---выбираем все сочетани€ по айди клиента, дате объ€влени€ и дате создани€
-SELECT date, client_union_id, create_date, (date-create_date) as diff from (
-	select * from default.ads_data ad 
-	inner join default.ads_clients ac 
-	on ad.client_union_id =ac.client_union_id
-)
-order by diff desc
-limit 10
-
---выбираем уникальные сочетани€ по айди клиента и датам
-SELECT    min(date) as minDate, client_union_id, ad_id, max(create_date) minCD,
-(minCD-minDate) as diff from (
-	select * from default.ads_data ad 
-	inner join default.ads_clients ac 
-	on ad.client_union_id =ac.client_union_id
-)
-group by client_union_id, ad_id
-order by client_union_id
-limit 10
-
-SELECT  distinct  date, client_union_id, ad_id, create_date from (
-	select * from default.ads_data ad 
-	inner join default.ads_clients ac 
-	on ad.client_union_id =ac.client_union_id
-)
-order by client_union_id
-limit 10
-
-
--- вычисл€ем искомые значени€
 select min(diff), max(diff), avg(diff) from (
-SELECT distinct date,client_union_id, create_date, (create_date - date) as diff from (
-	select * from default.ads_data ad 
-	inner join default.ads_clients ac 
-	on ad.client_union_id =ac.client_union_id
-)
-order by date,client_union_id--,ad_id
-)
-
-select min(diff), max(diff), avg(diff) from (
-
-SELECT    min(date) as minDate, client_union_id, ad_id, max(create_date) minCD,
-(minCD-minDate) as diff from (
-	select * from default.ads_data ad 
-	inner join default.ads_clients ac 
-	on ad.client_union_id =ac.client_union_id
-)
-group by client_union_id, ad_id
-order by client_union_id
-)
-
-
-
-
---провер€ем, что дата объ€влени€ всегда меньше даты создани€ клиента
-SELECT max(date), client_union_id, min(create_date) from (
-	select * from default.ads_data ad 
-	inner join default.ads_clients ac 
-	on ad.client_union_id =ac.client_union_id
-)
-group by client_union_id
-limit 10
-
---«апрос выводит сочетание айди клиента, айди объ€влени€ и минимаьной даты объ€влени€
 select mdate, client_union_id, create_date as cd, ad_id, (mdate - cd) as diff
-from default.ads_clients ac 
+from default.ads_clients_data acd 
 inner join (
 select min(date) as mdate, client_union_id, ad_id
 from default.ads_data ad 
 group by client_union_id, ad_id
-order by client_union_id ) as t
-on t.client_union_id=ac.client_union_id 
-limit 10
-
-select min(diff), max(diff), avg(diff) from (
-select mdate, client_union_id, create_date as cd, ad_id, (mdate - cd) as diff
-from default.ads_clients ac 
-inner join (
-select min(date) as mdate, client_union_id, ad_id
-from default.ads_data ad 
-group by client_union_id, ad_id
-order by client_union_id ) as t
-on t.client_union_id=ac.client_union_id 
+order by client_union_id 
+-- группируем данные в таблице объ€влений по айди клиента
+-- айди объ€влени€ и дате. выбираем наименьшую дату - это будет
+-- дата первого показа
+) as t
+on t.client_union_id=acd.client_union_id
+-- получившуюс€ таблицу с минимальными датами объедин€ем с 
+-- таблицей клиентов по айди клиента
 )
+-- в итоговой таблице рассчитываем необходимые данные
