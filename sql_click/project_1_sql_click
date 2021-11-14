@@ -235,6 +235,57 @@ having views !=0 -- некоторые обяъвления имеют клики и не имеют просмотров, искл
 8,207
 */
 
+
+/* 6)
+ Для финансового отчета нужно рассчитать наш заработок по дням. В какой день мы заработали больше всего? 
+ В какой меньше? Мы списываем с клиентов деньги, если произошел клик по CPC объявлению, 
+ и мы списываем деньги за каждый показ CPM объявления, 
+ если у CPM объявления цена - 200 рублей, то за один показ мы зарабатываем 200 / 1000.
+ */
+-- Найдем распределение дохода по дням
+select 
+	date,
+	round(sumIf(ad_cost, ad_cost_type='CPC'),2) as CPC_cost, 
+	round(sumIf(ad_cost, ad_cost_type='CPM')/1000,2) as CPM_cost,
+	round(CPC_cost+CPM_cost,2) as income
+from default.ads_data ad2 
+group by date
+order by income desc
+/*
+2019-04-04	524217.6	51586.07	575803.67
+2019-04-05	444904.9	106028.51	550933.41
+2019-04-02	530620.2	7376.49	537996.69
+2019-04-03	492404.2	10044.54	502448.74
+2019-04-01	272458.9	3380.97	275839.87
+2019-04-06	56910.1	15622.5	72532.6
+ */
+-- Выберем день с наибольшим доходом
+select argMax(date, income) from (
+	select 
+		date,
+		round(sumIf(ad_cost, ad_cost_type='CPC'),2) as CPC_cost, 
+		round(sumIf(ad_cost, ad_cost_type='CPM')/1000,2) as CPM_cost,
+		round(CPC_cost+CPM_cost,2) as income
+	from default.ads_data ad2 
+	group by date
+)
+/*
+ 2019-04-04
+ */
+--Выберем день с наименьшим доходом
+select argMin(date, income) from (
+	select 
+		date,
+		round(sumIf(ad_cost, ad_cost_type='CPC'),2) as CPC_cost, 
+		round(sumIf(ad_cost, ad_cost_type='CPM')/1000,2) as CPM_cost,
+		round(CPC_cost+CPM_cost,2) as income
+	from default.ads_data ad2 
+	group by date
+)
+/*
+2019-04-06
+ */
+
 /* 7)
  На какой платформе больше всего показов? 
  Сколько процентов показов приходится на каждую из платформ (колонка platform)
