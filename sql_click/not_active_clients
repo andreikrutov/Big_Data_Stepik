@@ -1,0 +1,19 @@
+/*
+В этом задании, исключите из view (раздел materialized view) ads_clients_data всех клиентов, 
+у которых когда-либо были активные объявления (для этого понадобится таблица ads_data) и 
+заполните пропуски ниже.
+Hint: Таблица ads_data - это таблица, в которой по определению есть только объявления, 
+которые уже были запущены (которые активны)
+ */
+
+with (select count(distinct client_union_id) from default.ads_clients_data acd 
+) as clients_count
+
+select count(*) as count, (count/clients_count) as ratio, min(create_date) from default.ads_clients_data acd 
+where client_union_id in (
+select distinct client_union_id from default.ads_clients_data acd  
+where client_union_id not in (
+select DISTINCT client_union_id from default.ads_data ad 
+--order by client_union_id 
+)
+)

@@ -1,0 +1,344 @@
+/* 1)
+ Получить статистику по дням. 
+ Просто посчитать число всех событий по дням, число показов, число кликов, 
+ число уникальных объявлений и уникальных кампаний.
+   */
+
+--Группируем по дням и считаем число событий в разрезе одного дня
+select date, count(*) as events_count from default.ads_data ad 
+group by date
+/*
+2019-04-01	22073
+2019-04-02	47117
+2019-04-03	59483
+2019-04-04	275735
+2019-04-05	519707
+2019-04-06	75885 */
+
+
+-- Аналогично сичтаем показы
+select date, count(*) as views from default.ads_data ad 
+where event = 'view'
+group by date
+/*
+ 2019-04-01	21782
+2019-04-02	46572
+2019-04-03	59023
+2019-04-04	275092
+2019-04-05	427386
+2019-04-06	60967
+ */
+
+-- Аналогично для кликов
+select date, count(*) as views from default.ads_data ad 
+where event = 'click'
+group by date
+/*
+ 2019-04-01	291
+2019-04-02	545
+2019-04-03	460
+2019-04-04	643
+2019-04-05	92321
+2019-04-06	14918
+ */
+
+/* 2)
+Разобраться, почему случился такой скачок 2019-04-05? 
+Каких событий стало больше? У всех объявлений или только у некоторых?
+*/
+select date, sum(target_audience_count) as audience from default.ads_data ad 
+group by date
+
+/*
+2019-04-01	14071326190
+2019-04-02	286007219747
+2019-04-03	357395609426
+2019-04-04	6430378194889
+2019-04-05	1295863698433
+2019-04-06	11776875768
+ */
+--Очевидно, что скачок не обусловлен суммарным охватом аудитории
+
+select ad_id, count(*) as views from default.ads_data ad 
+where event = 'view' and date='2019-04-05'
+group by ad_id
+order by views desc
+limit 5
+/*
+112583	302811
+107729	29724
+28142	20872
+107837	8338
+38892	7986
+ */
+--Резко отличается число показов объявления с ad_id = 112 583
+
+select ad_id, count(*) as clicks from default.ads_data ad 
+where event = 'click' and date='2019-04-05'
+group by ad_id
+order by clicks desc
+limit 5
+/*
+ 112583	91017
+38892	451
+37720	83
+42518	57
+18425	39
+ */
+-- Число кликов отличается еще сильнее, чем число показов. Таким образом можно сделать вывод, что
+-- объявление с ad_id = 112 583 было очень удачным в плане конверсии 
+
+select date from default.ads_data ad 
+where ad_id=112583
+group by date
+order by date
+/*
+ 2019-04-05
+2019-04-06
+ */
+-- Объявление с ad_id = 112 583 первый раз появляется 2019-04-05, таким образом скачок событий в 
+-- этот день связан с данным обяъвлением.
+
+/* 3) Найти топ 10 объявлений по CTR за все время. 
+ CTR — это отношение всех кликов объявлений к просмотрам. 
+ Например, если у объявления было 100 показов и 2 клика, CTR = 0.02. 
+ Различается ли средний и медианный CTR объявлений в наших данных?
+*/
+-- Получим топ-10 ctr по объявлениям
+select
+	ad_id,
+	countIf(event='view') as views,
+	countIf(event='click') as clicks,
+	round(clicks/views*100,2) as ctr
+from default.ads_data ad 
+group by ad_id 
+having views !=0 -- некоторые обяъвления имеют клики и не имеют просмотров, исключим их
+order by ctr desc
+limit 10
+
+select avg(ctr), median(ctr) from
+(select
+	ad_id,
+	countIf(event='view') as views,
+	countIf(event='click') as clicks,
+	round(clicks/views*100,2) as ctr
+from default.ads_data ad 
+group by ad_id 
+having views !=0 -- некоторые обяъвления имеют клики и не имеют просмотров, исключим их
+)
+/*
+ 1.5837656903765678	0.28500000000000003
+ */
+--Медиана и среднее отличаются, так как присутствуют объявления с нулем кликов и ctr=0
+
+
+
+/* 4)
+ Похоже, в наших логах есть баг, объявления приходят с кликами, 
+ но без показов! Сколько таких объявлений, есть ли какие-то закономерности? 
+ Эта проблема наблюдается на всех платформах?
+ */
+--В запросе выберем айди сообщений у которых был клик, 
+-- но которые не попадают в результаты подзапроса.
+select ad_id, platform from default.ads_data ad 
+where event='click'
+and ad_id not in ( 
+--в подзапросе выбираем все айди сообщений с показами
+select ad_id from default.ads_data ad 
+where event='view'
+)
+
+--Посчитаем количество таких сообщений
+select count(*) from default.ads_data ad 
+where event='click'
+and ad_id not in ( 
+select ad_id from default.ads_data ad 
+where event='view'
+)
+-- Таких сообщений 89 штук
+
+--Посмотрим по платформам
+select distinct platform from default.ads_data ad 
+where event='click'
+and ad_id not in ( 
+select ad_id from default.ads_data ad 
+where event='view'
+)
+/*
+ios
+android
+web
+ */
+-- Баг наблюдается на всех платформах
+
+--Проверим закономерности
+select date, time, ad_id, client_union_id, campaign_union_id from default.ads_data ad 
+where event='click'
+and ad_id not in ( 
+select ad_id from default.ads_data ad 
+where event='view'
+)
+
+select date, countIf(event='click') as count from default.ads_data ad 
+where 1=1 --event='click'
+and ad_id not in ( 
+select ad_id from default.ads_data ad 
+where event='view'
+)
+group by date
+/*
+ 2019-04-01	72
+2019-04-02	17
+ */
+--Основная часть багов наблюдается в первый день и немного во второй ранним утром. Возможно,
+--это связано с запуском платформы. Потом данную проблему удалось исправить.
+
+
+/* 5)
+ Есть ли различия в CTR у объявлений с видео и без? 
+ А чему равняется 95 процентиль CTR по всем объявлениям за 2019-04-04?
+ */
+with 
+(select 
+	countIf(event='view' and has_video=1) 
+	from default.ads_data ad) as views_video, 
+(select 
+	countIf(event='click' and has_video=1) 
+	from default.ads_data ad) as clicks_video,
+(select
+	countIf(event='view' and has_video=0) 
+	from default.ads_data ad) as views_wo_video,
+(select
+	countIf(event='click' and has_video=0) 
+	from default.ads_data ad) as clicks_wo_video
+select 
+	round(clicks_video/views_video*100,2) as ctr_video,
+	round(clicks_wo_video/views_wo_video*100,2) as ctr_wo_video
+/*
+1.12	12.32
+ */
+--Ctr для объявлений без видео выше почти в 10 раз
+	
+--Вычислим 95 процентиль
+select quantile(0.95)(ctr) as procentile_95 from
+(select
+	ad_id,
+	countIf(event='view') as views,
+	countIf(event='click') as clicks,
+	round(clicks/views*100,2) as ctr
+from default.ads_data ad 
+where date='2019-04-04'-- фильтр по дате
+group by ad_id 
+having views !=0 -- некоторые обяъвления имеют клики и не имеют просмотров, исключим их
+)
+/*
+8,207
+*/
+
+
+/* 6)
+ Для финансового отчета нужно рассчитать наш заработок по дням. В какой день мы заработали больше всего? 
+ В какой меньше? Мы списываем с клиентов деньги, если произошел клик по CPC объявлению, 
+ и мы списываем деньги за каждый показ CPM объявления, 
+ если у CPM объявления цена - 200 рублей, то за один показ мы зарабатываем 200 / 1000.
+ */
+-- Найдем распределение дохода по дням
+select 
+	date,
+	round(sumIf(ad_cost, ad_cost_type='CPC'),2) as CPC_cost, 
+	round(sumIf(ad_cost, ad_cost_type='CPM')/1000,2) as CPM_cost,
+	round(CPC_cost+CPM_cost,2) as income
+from default.ads_data ad2 
+group by date
+order by income desc
+/*
+2019-04-04	524217.6	51586.07	575803.67
+2019-04-05	444904.9	106028.51	550933.41
+2019-04-02	530620.2	7376.49	537996.69
+2019-04-03	492404.2	10044.54	502448.74
+2019-04-01	272458.9	3380.97	275839.87
+2019-04-06	56910.1	15622.5	72532.6
+ */
+-- Выберем день с наибольшим доходом
+select argMax(date, income) from (
+	select 
+		date,
+		round(sumIf(ad_cost, ad_cost_type='CPC'),2) as CPC_cost, 
+		round(sumIf(ad_cost, ad_cost_type='CPM')/1000,2) as CPM_cost,
+		round(CPC_cost+CPM_cost,2) as income
+	from default.ads_data ad2 
+	group by date
+)
+/*
+ 2019-04-04
+ */
+--Выберем день с наименьшим доходом
+select argMin(date, income) from (
+	select 
+		date,
+		round(sumIf(ad_cost, ad_cost_type='CPC'),2) as CPC_cost, 
+		round(sumIf(ad_cost, ad_cost_type='CPM')/1000,2) as CPM_cost,
+		round(CPC_cost+CPM_cost,2) as income
+	from default.ads_data ad2 
+	group by date
+)
+/*
+2019-04-06
+ */
+
+/* 7)
+ На какой платформе больше всего показов? 
+ Сколько процентов показов приходится на каждую из платформ (колонка platform)
+ */
+--Определим платформу с наибольшим числом показов
+select platform, countIf(event='view') as views from default.ads_data ad 
+group by platform
+order by views desc
+limit 1
+/*
+android	445722
+ */
+
+--Вычислим процент показов по латформам
+with 
+(select countIf(event='view') from default.ads_data ad)
+as views_full
+select platform, round(countIf(event='view')/views_full*100,2) as views_percent from default.ads_data ad2 
+group by platform
+order by views_percent desc
+/*
+android	50.03
+ios	29.99
+web	19.98 
+ */
+
+/* 8)
+А есть ли такие объявления, по которым сначала произошел клик, а только потом показ?
+*/
+select 
+	ad_id,
+	minIf(time, event='view' ) as view_time, 
+	minIf(time, event='click' ) as click_time,
+	(view_time-click_time) as diff
+from default.ads_data ad 
+group by ad_id
+having 1=1
+	and click_time != 0 -- условие убирает click_time = NULL
+	and click_time < view_time -- условие убирает view_time = NULL
+order by diff 
+limit 100
+/*
+32386	2019-04-03 04:03:25.000	2019-04-03 04:03:23.000	2
+46639	2019-04-02 04:02:06.000	2019-04-02 04:01:55.000	11
+107798	2019-04-02 04:21:14.000	2019-04-02 04:20:02.000	72
+44283	2019-04-04 04:11:36.000	2019-04-04 04:09:24.000	132
+36758	2019-04-04 05:23:42.000	2019-04-04 05:21:18.000	144
+38224	2019-04-04 04:09:24.000	2019-04-04 04:02:30.000	414
+114886	2019-04-02 04:40:49.000	2019-04-02 04:31:51.000	538
+44766	2019-04-05 06:02:57.000	2019-04-05 04:54:49.000	4088
+18681	2019-04-05 06:45:35.000	2019-04-05 04:18:20.000	8835
+33033	2019-04-05 07:33:11.000	2019-04-05 04:10:28.000	12163
+98569	2019-04-04 11:55:00.000	2019-04-04 07:09:35.000	17125
+23599	2019-04-05 09:48:26.000	2019-04-05 04:05:26.000	20580
+*/
+-- Имеется 12 объявлений, у которых клик произошел раньше показа
